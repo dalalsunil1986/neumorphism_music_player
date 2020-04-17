@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:neumorphic_player_concept/home.dart';
 import 'package:neumorphic_player_concept/painter.dart';
 import 'package:neumorphic_player_concept/clipper.dart';
 import 'package:neumorphic_player_concept/wave_painter.dart';
@@ -34,6 +33,7 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
   Animation<double> _perspectiveAnim;
   Animation<double> _waveConstAmpAnim;
   Animation<double> _coverAnim;
+  Animation<double> _coverAnim;
   Animation<Duration> _timeCounter;
 
   bool isWaveTapped = false;
@@ -46,10 +46,14 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
       ..addListener(() => setState(() {}));
     _perspectiveController =
         AnimationController(vsync: this, duration: Duration(seconds: 4))
-          ..addListener(() => setState(() {}));
-    _perspectiveAnim = Tween<double>(begin: 0, end: Math.pi / 16)
+          ..addListener(() => setState(() {}))..addStatusListener((status){
+            if (status == AnimationStatus.completed) _controller.reset();
+          });
+    _perspectiveAnim = Tween<double>(begin: 0, end: Math.pi / 6)
         .animate(_perspectiveController);
     _waveAnim = Tween<double>(begin: 1, end: 1).animate(
+        CurvedAnimation(curve: Curves.easeInSine, parent: _controller));
+    _musicSelectedColorAnim = Tween<double>(begin: 1, end: 1).animate(
         CurvedAnimation(curve: Curves.easeInSine, parent: _controller));
     _waveConstAmpAnim = Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(curve: Curves.easeInSine, parent: _controller));
@@ -102,8 +106,7 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
           AnimatedPositioned(
             duration: Duration(seconds: 4),
             width: width,
-            height: height,
-            // bottom: isListVisible ? height  : 0,
+            bottom: isListVisible ? height-210  : 0,
             child: Transform(
               alignment: Alignment.center,
               transform: Matrix4.identity()
@@ -217,8 +220,10 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
       itemCount: model.musicList.length,
       shrinkWrap: true,
       itemBuilder: (context, index) {
-        return Material(
-          color: Color(0xFF7A5EBB),
+        return ClipRect(
+          clipper: WaveClipper((1-_waveConstAmpAnim.value) * 360),
+
+          
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: () {
@@ -231,6 +236,7 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
                   '$index');
             },
             child: ListTile(
+
               contentPadding:
                   EdgeInsets.symmetric(horizontal: 30, vertical: 20),
               leading: PlayerButton(
