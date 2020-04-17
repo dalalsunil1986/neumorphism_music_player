@@ -33,7 +33,7 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
   Animation<double> _perspectiveAnim;
   Animation<double> _waveConstAmpAnim;
   Animation<double> _coverAnim;
-  Animation<double> _coverAnim;
+  Animation<double> _musicSelectedColorAnim;
   Animation<Duration> _timeCounter;
 
   bool isWaveTapped = false;
@@ -45,12 +45,11 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
         vsync: this, duration: Duration(minutes: 1, seconds: 9))
       ..addListener(() => setState(() {}));
     _perspectiveController =
-        AnimationController(vsync: this, duration: Duration(seconds: 4))
-          ..addListener(() => setState(() {}))..addStatusListener((status){
-            if (status == AnimationStatus.completed) _controller.reset();
-          });
-    _perspectiveAnim = Tween<double>(begin: 0, end: Math.pi / 6)
-        .animate(_perspectiveController);
+        AnimationController(vsync: this, duration: Duration(seconds: 2))
+          ..addListener(() => setState(() {}))
+          ..addStatusListener((status) {});
+    _perspectiveAnim = Tween<double>(begin: 0, end: Math.pi / 6).animate(
+        CurvedAnimation(curve: Curves.easeOut, parent: _perspectiveController));
     _waveAnim = Tween<double>(begin: 1, end: 1).animate(
         CurvedAnimation(curve: Curves.easeInSine, parent: _controller));
     _musicSelectedColorAnim = Tween<double>(begin: 1, end: 1).animate(
@@ -101,12 +100,17 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
             top: 210,
             width: width,
             height: height,
-            child: buildMusicList(),
+            child: Transform(
+                alignment: Alignment.bottomCenter,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001)
+                  ..rotateX(3.14 / 6 - _perspectiveAnim.value),
+                child: buildMusicList()),
           ),
           AnimatedPositioned(
-            duration: Duration(seconds: 4),
+            duration: Duration(seconds: 2),
             width: width,
-            bottom: isListVisible ? height-210  : 0,
+            bottom: isListVisible ? height - 210 : 0,
             child: Transform(
               alignment: Alignment.center,
               transform: Matrix4.identity()
@@ -136,7 +140,9 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
                       SizedBox(
                         height: 75,
                       ),
-                      DistortedCircle(child: buildRecordPlayer(),),
+                      DistortedCircle(
+                        child: buildRecordPlayer(),
+                      ),
                       SizedBox(
                         height: 60,
                       ),
@@ -180,7 +186,10 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
                         ),
                         onPressed: () {
                           setState(() {
-                            _perspectiveController.forward();
+                            if (!isListVisible)
+                              _perspectiveController.forward();
+                            else
+                              _perspectiveController.reverse();
                             isListVisible = !isListVisible;
                           });
                         },
@@ -193,18 +202,40 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
           ),
           Positioned(
             top: 40,
-            left: 20,
-            right: 20,
+            left: 30,
+            right: 30,
             child: Row(
               children: <Widget>[
-                Icon(Icons.search),
+                Icon(
+                  Icons.search,
+                  size: 30,
+                ),
                 Spacer(),
-                Icon(Icons.playlist_play),
+                Icon(
+                  Icons.playlist_play,
+                  size: 33,
+                ),
               ],
             ),
           ),
-          
-          
+          Positioned(
+            top: isListVisible ? 90 : 643,
+            left: 30,
+            right: 30,
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  Icons.repeat,
+                  size: 25,
+                ),
+                Spacer(),
+                Icon(
+                  Icons.add,
+                  size: 30,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -220,10 +251,14 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
       itemCount: model.musicList.length,
       shrinkWrap: true,
       itemBuilder: (context, index) {
-        return ClipRect(
-          clipper: WaveClipper((1-_waveConstAmpAnim.value) * 360),
+        bool isIndexCurrentTrack = false;
+        if (index == model.currentTrack) isIndexCurrentTrack = true;
 
-          
+        return AnimatedContainer(
+          duration: Duration(milliseconds: 500),
+          color: isIndexCurrentTrack ? Color(0xff6A52A4) : Color(0xFF7A5EBB),
+          // clipper: WaveClipper((1-_waveConstAmpAnim.value) * 360),
+
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: () {
@@ -236,7 +271,6 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
                   '$index');
             },
             child: ListTile(
-
               contentPadding:
                   EdgeInsets.symmetric(horizontal: 30, vertical: 20),
               leading: PlayerButton(
@@ -279,11 +313,15 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
       mainAxisSize: MainAxisSize.max,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: <Widget>[
-        Icon(Icons.repeat),
+        Spacer(),
         SizedBox(
           width: 35,
         ),
-        PlayerButton(radius: 20, iconPri: Icon(Icons.skip_previous)),
+        PlayerButton(
+            radius: 20,
+            iconPri: Icon(Icons.skip_previous),
+            iconAlt: Icon(Icons.skip_next),
+            musicNo: model.currentTrack + 1),
         SizedBox(
           width: 5,
         ),
@@ -304,11 +342,16 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
         SizedBox(
           width: 5,
         ),
-        PlayerButton(radius: 20, iconPri: Icon(Icons.skip_next)),
+        PlayerButton(
+          radius: 20,
+          iconPri: Icon(Icons.skip_next),
+          iconAlt: Icon(Icons.skip_next),
+          musicNo: model.currentTrack + 1,
+        ),
         SizedBox(
           width: 35,
         ),
-        Icon(Icons.add),
+        Spacer(),
       ],
     );
   }
@@ -331,9 +374,6 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
   }
 
   Widget buildRecordPlayer() {
-    // double x = Math.cos(_coverAnim.value);
-    // double y = Math.sin(_coverAnim.value);
-
     return Transform.rotate(
       angle: _coverAnim.value,
       child: Container(
@@ -385,6 +425,7 @@ class _PlayerButtonState extends State<PlayerButton> {
   Color iconColor = Color(0xFF76B54A4);
   List<Color> gradientColors = [Color(0xFFe5ecf5), Color(0xFFc1c7ce)];
   double angle = -105 * Math.pi / 180;
+
   @override
   Widget build(BuildContext context) {
     PlayerModel model = Provider.of<PlayerModel>(context);
