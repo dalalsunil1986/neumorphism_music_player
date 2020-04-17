@@ -4,7 +4,7 @@ import 'package:flutter/painting.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'newmodel.dart';
+import 'model.dart';
 
 class DistortedCircle extends StatefulWidget {
   DistortedCircle({this.child});
@@ -15,9 +15,10 @@ class DistortedCircle extends StatefulWidget {
 
 class _DistortedCircleState extends State<DistortedCircle>
     with SingleTickerProviderStateMixin {
+      
   AnimationController _controller;
-
   Animation<double> _distortAnim;
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +28,6 @@ class _DistortedCircleState extends State<DistortedCircle>
           ..addListener(() => setState(() {}))
           ..addStatusListener((status) {
             if (status == AnimationStatus.completed) _controller.repeat();
-            // if (status == AnimationStatus.dismissed) _controller.forward();
           });
 
     _distortAnim = Tween<double>(begin: pi / 2, end: pi * 2).animate(
@@ -48,7 +48,6 @@ class _DistortedCircleState extends State<DistortedCircle>
       _controller.forward();
     else
       _controller.stop();
-    // if (status == AnimationStatus.dismissed) _controller.forward();
 
     Widget child = widget.child;
 
@@ -67,7 +66,7 @@ class _DistortedCircleState extends State<DistortedCircle>
 
 class DistortPainter extends CustomPainter {
   Paint tpaint = Paint()
-    ..color = Color(0xffFFFF8D)
+    ..color = Colors.green
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1;
 
