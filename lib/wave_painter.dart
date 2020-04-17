@@ -2,53 +2,48 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 
 class WavePainter extends CustomPainter {
-  WavePainter(this.animation, {this.tapped=false}):super(repaint:animation);
+  WavePainter(this.animation, {this.tapped = false})
+      : super(repaint: animation);
   Animation<double> animation;
   bool tapped;
-  List<Color> colors ;
-  Paint _paint ;
-  Paint _paintBlank ;
+  List<Color> colors;
+  Paint _paint;
   double waveAmplitude;
   @override
   void paint(Canvas canvas, Size size) {
-  colors=List.from( Colors.accents);
+    colors = List.from(Colors.accents);
 
-    colors.removeRange(6, 12);
+    colors.removeRange(6, 13);
 
     List<Color> gradColors = colors
-        .map((color) =>
-            color.withOpacity(Random().nextDouble().clamp(0.05, 0.4)))
+        .map(
+            (color) => color.withOpacity(Random().nextDouble().clamp(0.5, 0.9)))
         .toList();
     final Gradient gradient = LinearGradient(colors: gradColors);
 
-     _paint = Paint()
+    _paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..shader = gradient.createShader(Rect.fromLTWH(0, 20, size.width, 40));
-     _paintBlank = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5..color=Colors.grey;
+
 
     canvas.translate(0, size.height / 2);
     canvas.scale(1, -1);
-      print(size.width*animation.value);
 
     for (double i = animation.value; i < size.width.toInt(); i++) {
-      waveAmplitude = Random().nextDouble() * 20;
+      waveAmplitude = cos(i / 20) * 20;
+      var r = 2 * sin(i) - 2 * cos(4 * i) + sin(2 * i - pi * 24);
+      r = r * 5;
+      if (tapped)
+        canvas.drawLine(Offset(i, waveAmplitude), Offset(i, -waveAmplitude),
+            _paint);
 
-      
-      canvas.drawLine(
-          Offset(i, waveAmplitude), Offset(i, -waveAmplitude), _paint);
-      if(tapped)
-      canvas.drawLine(
-          Offset(i, waveAmplitude), Offset(i, -waveAmplitude), _paintBlank);
-
+      canvas.drawLine(Offset(i, r), Offset(i, -r), _paint);
     }
   }
 
   @override
-  bool shouldRepaint(WavePainter oldDelegate)  {
-return oldDelegate.colors!=colors;
-}
-
+  bool shouldRepaint(WavePainter oldDelegate) {
+    return oldDelegate.colors != colors;
+  }
 }

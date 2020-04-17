@@ -1,14 +1,23 @@
+import 'dart:async';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:neumorphic_player_concept/home.dart';
 import 'package:neumorphic_player_concept/painter.dart';
-import 'package:neumorphic_player_concept/pppp.dart';
+import 'package:neumorphic_player_concept/clipper.dart';
 import 'package:neumorphic_player_concept/wave_painter.dart';
+import 'package:provider/provider.dart';
+import 'distorted_wave.dart';
 import 'dart:math' as Math;
+
+import 'clipper.dart';
+import 'newmodel.dart';
 
 void main() {
   runApp(MaterialApp(
-    home: PlayerApp(),    debugShowCheckedModeBanner: false,
-
+    home: ChangeNotifierProvider<PlayerModel>(
+        create: (context) => PlayerModel(), child: PlayerApp()),
+    debugShowCheckedModeBanner: false,
   ));
 }
 
@@ -17,11 +26,12 @@ class PlayerApp extends StatefulWidget {
   _PlayerAppState createState() => _PlayerAppState();
 }
 
-class _PlayerAppState extends State<PlayerApp>
-    with SingleTickerProviderStateMixin {
+class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
   AnimationController _controller;
+  AnimationController _perspectiveController;
 
   Animation<double> _waveAnim;
+  Animation<double> _perspectiveAnim;
   Animation<double> _waveConstAmpAnim;
   Animation<double> _coverAnim;
   Animation<Duration> _timeCounter;
@@ -32,114 +42,150 @@ class _PlayerAppState extends State<PlayerApp>
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: Duration(minutes: 1, seconds: 32))
+        vsync: this, duration: Duration(minutes: 1, seconds: 9))
       ..addListener(() => setState(() {}));
+    _perspectiveController =
+        AnimationController(vsync: this, duration: Duration(seconds: 4))
+          ..addListener(() => setState(() {}));
+    _perspectiveAnim = Tween<double>(begin: 0, end: Math.pi / 16)
+        .animate(_perspectiveController);
     _waveAnim = Tween<double>(begin: 1, end: 1).animate(
         CurvedAnimation(curve: Curves.easeInSine, parent: _controller));
     _waveConstAmpAnim = Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(curve: Curves.easeInSine, parent: _controller));
-    _coverAnim = Tween<double>(begin: 0, end: 2 * Math.pi).animate(
+    _coverAnim = Tween<double>(begin: 0, end: 300 * Math.pi).animate(
         CurvedAnimation(parent: _controller, curve: Curves.easeInOutCirc));
-    _timeCounter = Tween<Duration>(
-            begin: Duration(seconds: 0), end: Duration(minutes: 3, seconds: 32))
-        .animate(_controller);
   }
+
+  double time;
+  bool isListVisible = false;
+  PlayerModel model;
+  bool isPressed = false;
 
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height;
     final width = MediaQuery.of(context).size.width;
 
-//40,110,145,356,565
-//bg d4e3f2
-// 9fb7cf
-//bg item 9881cf
-//bg item selected 876bc7
-//bg item selected 9273dc
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: <Widget>[
-          Center(
-            child: Container(
-              decoration: BoxDecoration(color: Color(0xffd4e3f2)),
-            ),
-          ),
-          //  widgetMusicList(),
+    model = Provider.of<PlayerModel>(context);
 
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                SizedBox(
-                  height: 100,
-                ),
-                Text('Runnin\' Outta Luck', style: TextStyle(fontSize: 22)),
-                SizedBox(
-                  height: 15,
-                ),
-                Text('Alex Cameron', style: TextStyle(fontSize: 16)),
-                SizedBox(
-                  height: 75,
-                ),
-                FlatButton(
-                  child: Text('Play music'),
-                  onPressed: () {
-                    _controller.forward();
-                  },
-                ),
-                buildRecordPlayer(),
-                SizedBox(
-                  height: 1,
-                ),
-                Container(width: width, height: 40, color: Colors.grey),
-                SizedBox(
-                  height: 25,
-                ),
-                Row(
-                  children: <Widget>[
-                    // Text(_timeCounter.value.toString().substring(3, 7),
-                    //     style: TextStyle(
-                    //         color: Colors.grey,
-                    //         fontSize: 12,
-                    //         fontWeight: FontWeight.w700)),
-                    SizedBox(
-                      width: 8,
-                    ),
-                    Container(
-                      width: 400.0 - 116,
-                      height: 40,
-                      child: ClipRect(
-                        clipper: WaveClipper(
-                            _waveConstAmpAnim.value * (400 - 116)),
-                        child: CustomPaint(
-                          painter: WavePainter(_waveAnim),
-                       ),
+    if (model.currentTrack == 0)
+      _controller.duration = model.musicList[model.currentTrack].duration;
+
+    if (model.musicList[model.currentTrack].isPlaying == true) {
+      _controller.duration = model.musicList[model.currentTrack].duration;
+
+      _controller.forward();
+    } else {
+      _controller.stop();
+    }
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed)
+        model.musicList[model.currentTrack].isPlaying = false;
+    });
+    _timeCounter =
+        Tween<Duration>(begin: Duration(seconds: 0), end: _controller.duration)
+            .animate(_controller);
+
+    return Scaffold(
+      backgroundColor: Color(0xFf7A5EBB),
+      body: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          Positioned(
+            // duration: Duration(seconds: 4),
+            top: 210,
+            width: width,
+            height: height,
+            child: buildMusicList(),
+          ),
+          AnimatedPositioned(
+            duration: Duration(seconds: 4),
+            width: width,
+            height: height,
+            // bottom: isListVisible ? height  : 0,
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..rotateX(_perspectiveController.isAnimating
+                    ? -_perspectiveAnim.value
+                    : 0),
+              child: Material(
+                elevation: 16,
+                borderRadius: BorderRadius.circular(20),
+                color: Color(0xffD6DDE5),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 30.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: <Widget>[
+                      SizedBox(
+                        height: 90,
                       ),
-                    ),
-                    SizedBox(
-                      width: 8,
-                    ),
-                    Text('3:32',
-                        style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700)),
-                  ],
+                      Text(model.musicList[model.currentTrack].name,
+                          style: TextStyle(fontSize: 22)),
+                      SizedBox(
+                        height: 15,
+                      ),
+                      Text(model.musicList[model.currentTrack].artistName,
+                          style: TextStyle(fontSize: 16)),
+                      SizedBox(
+                        height: 75,
+                      ),
+                      DistortedCircle(child: buildRecordPlayer(),),
+                      SizedBox(
+                        height: 60,
+                      ),
+                      Row(
+                        children: <Widget>[
+                          Text(_timeCounter.value.toString().substring(3, 7),
+                              style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700)),
+                          SizedBox(
+                            width: 8,
+                          ),
+                          buildWave(
+                            width,
+                          ),
+                          SizedBox(
+                            width: 8,
+                          ),
+                          Text(_controller.duration.toString().substring(3, 7),
+                              style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                      SizedBox(
+                        height: 20,
+                      ),
+                      buildControlsRow(),
+                      SizedBox(
+                        height: 30,
+                      ),
+                      Text('ALL TRACKS'),
+                      SizedBox(
+                        height: 25,
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.remove,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _perspectiveController.forward();
+                            isListVisible = !isListVisible;
+                          });
+                        },
+                      )
+                    ],
+                  ),
                 ),
-                SizedBox(
-                  height: 25,
-                ),
-                Text('ALL TRACKS'),
-                SizedBox(
-                  height: 25,
-                ),
-                Text(
-                  '-',
-                  style: TextStyle(fontSize: 27),
-                )
-              ],
+              ),
             ),
           ),
           Positioned(
@@ -150,45 +196,254 @@ class _PlayerAppState extends State<PlayerApp>
               children: <Widget>[
                 Icon(Icons.search),
                 Spacer(),
-                Icon(Icons.search),
+                Icon(Icons.playlist_play),
               ],
             ),
           ),
+          
+          
         ],
       ),
     );
   }
 
-  Widget buildRecordPlayer() {
-    double x = Math.cos(_coverAnim.value);
-    double y = Math.sin(_coverAnim.value);
-
-    return Container(
-      height: 290,
-      width: 290,
-      alignment: Alignment.center,
-      child: ClipOval(
-        child: Image.asset('images/cover.png',
-            height: 190, width: 190, fit: BoxFit.fitHeight),
+  ListView buildMusicList() {
+    return ListView.separated(
+      separatorBuilder: (_, __) => Divider(
+        thickness: 1,
+        height: 0,
+        color: Color(0xff9780CD),
       ),
-      decoration: BoxDecoration(
-          gradient: LinearGradient(
-              begin: Alignment(-x, -y),
-              end: Alignment(x, y),
-              colors: [
-                Color(0xFFfdeff9),
-                Color(0xFFec38bc),
-                Color(0xFF7303c0),
-                Color(0xFF03001e),
-              ]),
-          shape: BoxShape.circle),
+      itemCount: model.musicList.length,
+      shrinkWrap: true,
+      itemBuilder: (context, index) {
+        return Material(
+          color: Color(0xFF7A5EBB),
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () {
+              model.resetList();
+              if (index != model.currentTrack) _controller.reset();
+              model.currentTrack = index;
+              model.musicList[model.currentTrack].isPlaying =
+                  !model.musicList[model.currentTrack].isPlaying;
+              print(model.musicList[model.currentTrack].isPlaying.toString() +
+                  '$index');
+            },
+            child: ListTile(
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+              leading: PlayerButton(
+                iconPri: Icon(Icons.play_arrow),
+                iconAlt: Icon(Icons.pause),
+                radius: 18,
+                isInnerColorFill: true,
+                musicNo: index,
+              ),
+              title: Padding(
+                padding: const EdgeInsets.only(bottom: 6.0),
+                child: Text(
+                  model.musicList[index].name,
+                  style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600),
+                ),
+              ),
+              subtitle: Text(model.musicList[index].artistName,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey,
+                  )),
+              trailing: Text(
+                  model.musicList[index].duration.toString().substring(3, 7),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey,
+                  )),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget buildButton({bool tapped, Icon icon, double radius}) {
+  Row buildControlsRow() {
+    return Row(
+      mainAxisSize: MainAxisSize.max,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: <Widget>[
+        Icon(Icons.repeat),
+        SizedBox(
+          width: 35,
+        ),
+        PlayerButton(radius: 20, iconPri: Icon(Icons.skip_previous)),
+        SizedBox(
+          width: 5,
+        ),
+        GestureDetector(
+          onTap: () {
+            model.currentTrack = model.currentTrack;
+            model.musicList[model.currentTrack].isPlaying =
+                !model.musicList[model.currentTrack].isPlaying;
+            print('big tap');
+          },
+          child: PlayerButton(
+            radius: 35,
+            iconPri: Icon(Icons.play_arrow),
+            iconAlt: Icon(Icons.pause),
+            musicNo: model.currentTrack,
+          ),
+        ),
+        SizedBox(
+          width: 5,
+        ),
+        PlayerButton(radius: 20, iconPri: Icon(Icons.skip_next)),
+        SizedBox(
+          width: 35,
+        ),
+        Icon(Icons.add),
+      ],
+    );
+  }
+
+  Container buildWave(double width) {
     return Container(
-      child: icon,
-      decoration: BoxDecoration(shape: BoxShape.circle),
+      width: 262 * _waveAnim.value,
+      height: 40,
+      child: CustomPaint(
+        painter: TrialPainter(),
+        child: ClipRect(
+          clipper: WaveClipper(_waveConstAmpAnim.value * width),
+          child: CustomPaint(
+            painter: TrialPainter(),
+            foregroundPainter: WavePainter(_waveAnim),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildRecordPlayer() {
+    // double x = Math.cos(_coverAnim.value);
+    // double y = Math.sin(_coverAnim.value);
+
+    return Transform.rotate(
+      angle: _coverAnim.value,
+      child: Container(
+        height: 290,
+        width: 290,
+        alignment: Alignment.center,
+        child: Transform.rotate(
+          angle: -_coverAnim.value,
+          child: ClipOval(
+            child: Image.asset(
+              'images/cover.png',
+              height: 150,
+              width: 150,
+              fit: BoxFit.fill,
+            ),
+          ),
+        ),
+        decoration: BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage(
+                'images/vinyl.png',
+              ),
+              fit: BoxFit.fitHeight,
+              colorFilter: ColorFilter.mode(Colors.blue, BlendMode.color),
+            ),
+            shape: BoxShape.circle),
+      ),
+    );
+  }
+}
+
+class PlayerButton extends StatefulWidget {
+  PlayerButton(
+      {this.radius,
+      this.iconPri,
+      this.iconAlt = const Icon(Icons.queue_music),
+      this.isInnerColorFill = false,
+      this.musicNo = 0});
+  final double radius;
+  final Icon iconPri;
+  final Icon iconAlt;
+  final bool isInnerColorFill;
+  final int musicNo;
+  @override
+  _PlayerButtonState createState() => _PlayerButtonState();
+}
+
+class _PlayerButtonState extends State<PlayerButton> {
+  Color iconColor = Color(0xFF76B54A4);
+  List<Color> gradientColors = [Color(0xFFe5ecf5), Color(0xFFc1c7ce)];
+  double angle = -105 * Math.pi / 180;
+  @override
+  Widget build(BuildContext context) {
+    PlayerModel model = Provider.of<PlayerModel>(context);
+    double radius = widget.radius;
+    int musicNo = widget.musicNo;
+    Icon iconPri = widget.iconPri;
+    Icon iconAlt = widget.iconAlt;
+    bool isInnerColorFill = widget.isInnerColorFill;
+    double x = Math.cos(angle);
+    double y = Math.sin(angle);
+    bool musicStatus = model.musicList[musicNo].isPlaying;
+    return Container(
+      alignment: Alignment.center,
+      width: 2 * radius + 10,
+      height: 2 * radius + 10,
+      decoration: BoxDecoration(
+        color: iconColor,
+        border: Border.fromBorderSide(
+          BorderSide(
+              color: !isInnerColorFill ? Colors.grey : Color(0xFFaeb4ba),
+              width: 0.5),
+        ),
+        shape: BoxShape.circle,
+        gradient: !isInnerColorFill
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                stops: [
+                    0.33,
+                    0.66,
+                    1
+                  ],
+                colors: [
+                    Color(0xFFaeb4ba),
+                    Color(0xffD6DDE5),
+                    Color(0xFFfefefe),
+                  ])
+            : null,
+      ),
+      child: Container(
+        height: 2 * radius,
+        width: 2 * radius,
+        child: Icon(
+          musicStatus ? iconAlt.icon : iconPri.icon,
+          color: iconColor,
+        ),
+        decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+                begin: Alignment(x, y),
+                end: Alignment(-x, -y),
+                colors: musicStatus
+                    ? gradientColors.reversed.toList()
+                    : gradientColors),
+            boxShadow: [
+              BoxShadow(
+                  blurRadius: 10,
+                  offset: Offset(-5 * x, -5 * y),
+                  color: Color(0xFFb6bcc3)),
+              BoxShadow(
+                  blurRadius: 10,
+                  offset: Offset(5 * x, 5 * y),
+                  color: Color(0xFFf6feff))
+            ]),
+      ),
     );
   }
 }
