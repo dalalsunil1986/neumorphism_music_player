@@ -15,7 +15,6 @@ class DistortedCircle extends StatefulWidget {
 
 class _DistortedCircleState extends State<DistortedCircle>
     with SingleTickerProviderStateMixin {
-      
   AnimationController _controller;
   Animation<double> _distortAnim;
 
@@ -66,9 +65,10 @@ class _DistortedCircleState extends State<DistortedCircle>
 
 class DistortPainter extends CustomPainter {
   Paint tpaint = Paint()
-    ..color = Colors.green
+    ..color = Colors.white
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 1;
+    ..strokeWidth = 1
+    ..maskFilter = MaskFilter.blur(BlurStyle.solid, 2,);
 
   @override
   void paint(Canvas canvas, Size size) {

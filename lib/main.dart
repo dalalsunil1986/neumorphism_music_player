@@ -44,7 +44,7 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: Duration(minutes: 1, seconds: 9))
+        vsync: this, duration: Duration(minutes: 1, ))
       ..addListener(() => setState(() {}));
     _perspectiveController =
         AnimationController(vsync: this, duration: Duration(seconds: 1))
@@ -87,8 +87,10 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
       _controller.stop();
     }
     _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed)
+      if (status == AnimationStatus.completed){
         model.musicList[model.currentTrack].isPlaying = false;
+        _controller.reset();
+      }
     });
     _timeCounter =
         Tween<Duration>(begin: Duration(seconds: 0), end: _controller.duration)
@@ -262,7 +264,6 @@ class _PlayerAppState extends State<PlayerApp> with TickerProviderStateMixin {
         return AnimatedContainer(
           duration: Duration(milliseconds: 200),
           color: isIndexCurrentTrack ? Color(0xff6A52A4) : Color(0xFF7A5EBB),
-          // clipper: WaveClipper((1-_waveConstAmpAnim.value) * 360),
 
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
